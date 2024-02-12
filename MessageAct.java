@@ -80,6 +80,7 @@ import com.zegocloud.uikit.prebuilt.call.invite.ZegoUIKitPrebuiltCallInvitationS
 import com.zegocloud.uikit.prebuilt.call.invite.widget.ZegoSendCallInvitationButton;
 import com.zegocloud.uikit.service.defines.ZegoUIKitUser;
 
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collections;
@@ -99,7 +100,9 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
     DatabaseReference sRef, rRef, schatlist, rchatlist, lastseenref, groupRef, groupchat,
             imageDownload, reactionsref,seenStatus,checkingchatref;
     String rname, rurl, rabout, rphone, suid="", ruid = "", sname, sabout, sphone,
-            surl, address, usertoken, savetime,rcCode,messageSMS,seentype = "",typingstatus,filename;
+            surl, userstatus="", usertoken, savetime,
+            rcCode,messageSMS,seentype = "",typingstatus,
+            filename,readvalue="",delivered = "",chatting = "",lastseen = "",online="";
     ImageView imageView;
     FirebaseStorage firebaseStorage;
     StorageReference storageReference;
@@ -118,6 +121,9 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
   // yourAppSign
     ZegoSendCallInvitationButton videocall,audiocall;
 
+    int nameIndex;
+    Cursor returnCursor;
+
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -127,6 +133,8 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
         db = FirebaseFirestore.getInstance();
         storageReference = firebaseStorage.getInstance().getReference("chat images");
+
+
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         suid = user.getUid();
 
@@ -138,6 +146,7 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
             seentype = extras.getString("stype");
             ruid = extras.getString("ruid");
         }
+        lastseenref = database.getReference("online");
 
         messageEt = findViewById(R.id.et_message);
         searchEt = findViewById(R.id.search_m_et);
@@ -238,19 +247,15 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
         schatlist = database.getReference("chat list").child(suid);
         checkingchatref = database.getReference("chat list");
         rchatlist = database.getReference("chat list").child(ruid);
-        lastseenref = database.getReference("online");
+
 
         seenStatus = database.getReference("seenstatus");
 
         seenStatus.child(ruid+suid).child("counts").removeValue();
 
-        Calendar time1 = Calendar.getInstance();
-        SimpleDateFormat currenttime = new
-                SimpleDateFormat("HH:mm:ss a");
-        savetime = currenttime.format(time1.getTime());
+        DateFormat df = new SimpleDateFormat("h:mm a");
+        savetime = df.format(Calendar.getInstance().getTime());
 
-//        getdata();
-//        onlineuser();
 
         moreBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -288,7 +293,8 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
                     modal.setType("txt");
                     modal.setReaction(9);
                     modal.setReactionrec(9);
-                    modal.setMno("0");
+                    modal.setDelivered(delivered);
+                    modal.setRead(readvalue);
                     String key = sRef.push().getKey();
                     modal.setDelete(key);
 
@@ -300,10 +306,10 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
                     rmodal.setSuid(suid);
                     rmodal.setType("txt");
                     rmodal.setTime(savetime);
-                    rmodal.setMno("");
                     rmodal.setReaction(9);
                     rmodal.setReactionrec(9);
-
+                    rmodal.setRead("");
+                    rmodal.setDelivered("");
 
                     String key2 = rRef.push().getKey();
                     rmodal.setDelete(key2);
@@ -317,6 +323,8 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
                     listModel.setUid(ruid);
                     listModel.setUrl(rurl);
                     listModel.setTime(savetime);
+                    listModel.setRead(readvalue);
+                    listModel.setDelivered(delivered);
 
                     schatlist.child(ruid).setValue(listModel);
 
@@ -328,12 +336,16 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
                     rlistmodel.setUid(suid);
                     rlistmodel.setUrl(surl);
                     rlistmodel.setTime(savetime);
+                    rlistmodel.setRead("");
+                    rlistmodel.setDelivered("");
                     rchatlist.child(suid).setValue(rlistmodel);
 
                     // sender status
-                    seenStatus.child(suid+ruid).child("counts").child(message).setValue("sent");
+                    if (chatting.equals("no")){
+                        seenStatus.child(suid+ruid).child("counts").child(message).setValue("sent");
+                    }else {
 
-
+                    }
                 }
                 sendNotification(suid, ruid);
             }
@@ -357,18 +369,32 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
                 if (s.toString().trim().length() == 0) {
                     // set text to Not typing
-                    lastseenref.child(suid).setValue("Online ");
+//                    lastseenref.child(suid).setValue("Online ");
+                    HashMap hashMap = new HashMap();
+                    hashMap.put("online","yes");
+                    hashMap.put("Chatting","yes");
+                    hashMap.put("Last seen"," Online");
+                    lastseenref.child(suid).setValue(hashMap);
                     typingstatus = "1";
                 } else {
                     // set text to typing
-                    lastseenref.child(suid).setValue("is typing ");
+//                    lastseenref.child(suid).setValue("is typing ");
+                    HashMap hashMap = new HashMap();
+                    hashMap.put("online","yes");
+                    hashMap.put("Chatting","yes");
+                    hashMap.put("Last seen"," Typing...");
+                    lastseenref.child(suid).setValue(hashMap);
                     typingstatus = "1";
                 }
             }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                lastseenref.child(suid).setValue("is typing ");
+                HashMap hashMap = new HashMap();
+                hashMap.put("online","yes");
+                hashMap.put("Chatting","yes");
+                hashMap.put("Last seen"," Typing...");
+                lastseenref.child(suid).setValue(hashMap);
                 typingstatus = "1";
             }
 
@@ -377,7 +403,11 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
             public void afterTextChanged(Editable s) {
                 if (s.toString().trim().length() == 0) {
                     // set text to Stopped typing
-                    lastseenref.child(suid).setValue("Online ");
+                    HashMap hashMap = new HashMap();
+                    hashMap.put("online","yes");
+                    hashMap.put("Chatting","yes");
+                    hashMap.put("Last seen"," Online");
+                    lastseenref.child(suid).setValue(hashMap);
                 }
             }
         });
@@ -430,24 +460,90 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
                 voicecall();
                 videocall();
                 intializecall(sphone,sname);
+
             }
         },1500);
-
-        // need a activityContext.
-//        PermissionX.init(this).permissions(Manifest.permission.SYSTEM_ALERT_WINDOW)
-//                .onExplainRequestReason(new ExplainReasonCallback() {
-//                    @Override
-//                    public void onExplainReason(@NonNull ExplainScope scope, @NonNull List<String> deniedList) {
-//                        String message = "We need your consent for the following permissions in order to use the offline call function properly";
-//                        scope.showRequestReasonDialog(deniedList, message, "Allow", "Deny");
-//                    }
-//                }).request(new RequestCallback() {
-//                    @Override
-//                    public void onResult(boolean allGranted, @NonNull List<String> grantedList,
-//                                         @NonNull List<String> deniedList) {
-//                    }
-//                });
+        updatemesssageseen();
     }
+
+    private void getdata() {
+        try {
+            lastseenref.child(ruid).addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+
+                    try {
+                        if (snapshot.exists()){
+                            online = snapshot.child("online").getValue().toString();
+                            lastseen = snapshot.child("Last seen").getValue().toString();
+                            chatting = snapshot.child("Chatting").getValue().toString();
+                            lasteentv.setText(" "+lastseen);
+                            if (online.equals("yes")){
+                                if (chatting.equals("yes")){
+                                    delivered = "yes";
+                                    readvalue = "yes";
+                                }else if(chatting.equals("no")) {
+                                    delivered = "yes";
+                                    readvalue = "no";
+                                }
+
+                            }else if (online.equals("no")){
+                                delivered = "no";
+                                readvalue = "no";
+                            }
+
+
+                        }else {
+                        }
+                    }catch (Exception e){
+
+                    }
+
+                }
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                }
+            });
+
+        }catch (Exception e){
+
+        }
+    }
+
+    private  void onlineuser(){
+
+        HashMap hashMap = new HashMap();
+        hashMap.put("online","yes");
+        hashMap.put("Chatting","yes");
+        hashMap.put("Last seen","Online");
+        lastseenref.child(suid).setValue(hashMap);
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        HashMap hashMap = new HashMap();
+        hashMap.put("online","yes");
+        hashMap.put("Chatting","no");
+        hashMap.put("Last seen",savetime);
+        lastseenref.child(suid).setValue(hashMap);
+        typingstatus = "0";
+    }
+
+
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        HashMap hashMap = new HashMap();
+        hashMap.put("online","no");
+        hashMap.put("Chatting","no");
+        hashMap.put("Last seen",savetime);
+        lastseenref.child(suid).setValue(hashMap);
+
+
+    }
+
     void voicecall(){
         audiocall.setIsVideoCall(false);
         audiocall.setResourceID("zego_uikit_call"); // Please fill in the resource ID name that has been configured in the ZEGOCLOUD's console here.
@@ -493,10 +589,12 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
         FirebaseRecyclerAdapter<MessageModal,MessageVH> firebaseRecyclerAdapter =
                 new FirebaseRecyclerAdapter<MessageModal, MessageVH>(options) {
                     @Override
-                    protected void onBindViewHolder(@NonNull MessageVH holder, int position, @NonNull MessageModal model) {
+                    protected void onBindViewHolder(@NonNull MessageVH holder,
+                                                    int position, @NonNull MessageModal model) {
 
                         holder.setmessage(getApplication(),model.getMessage(),model.getSearch(),model.getDelete(),model.getTime()
-                                ,model.getSuid(),model.getRuid(),model.getUrl(),model.getType(),model.getMno(),model.getReaction(),model.getReactionrec());
+                                ,model.getSuid(),model.getRuid(),model.getUrl(),model.getType()
+                                ,model.getReaction(),model.getReactionrec(),model.getRead(),model.getDelivered());
 
                     }
 
@@ -668,15 +766,17 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
             previewIMG(imageUri);
             convertMediaUriToPath(imageUri);
-            Cursor returnCursor =
+             returnCursor =
                     getContentResolver().query(imageUri, null, null,
                             null, null);
-            int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+             nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
             int sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE);
             returnCursor.moveToFirst();
           //  pickidtv.setText(returnCursor.getString(nameIndex));
 
-        //     filename === returnCursor.getString(nameIndex);
+
+            String file =  String.valueOf(nameIndex);
+             filename = file.replaceAll("[+.^:,@]", "-");
 
         }else {
 
@@ -735,7 +835,8 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                 UploadTask uploadTask = reference.putFile(imageUri);
 
-                Task<Uri> urlTask = uploadTask.continueWithTask(new Continuation<UploadTask.TaskSnapshot, Task<Uri>>() {
+                Task<Uri> urlTask = uploadTask.continueWithTask(new Continuation<UploadTask.TaskSnapshot,
+                                Task<Uri>>() {
                     @Override
                     public Task<Uri> then(@NonNull Task<UploadTask.TaskSnapshot> task) throws Exception {
                         if (!task.isSuccessful()){
@@ -799,7 +900,11 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                                     rchatlist.child(suid).setValue(rlistmodel);
 
-                                    seenStatus.child(suid+ruid).child("counts").child(filename).setValue("sent");
+                                    if (chatting.equals("no")){
+                                        seenStatus.child(suid+ruid).child("counts").
+                                                child(filename).setValue("sent");                                    }else {
+
+                                    }
 
                                 }
 
@@ -853,6 +958,8 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
     {
         super.onStart();
 
+        getdata();
+        onlineuser();
 
         try {
             FirebaseRecyclerOptions<MessageModal> options =
@@ -868,7 +975,7 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                             holder.setmessage(getApplication(),model.getMessage(),model.getSearch(),model.getDelete(),model.getTime()
                                     ,model.getSuid(),model.getRuid(),model.getUrl(),
-                                    model.getType(),model.getMno(),model.getReaction(), model.getReactionrec());
+                                    model.getType(),model.getReaction(), model.getReactionrec(),model.getRead(),model.getDelivered());
 
                             String deletem = getItem(position).getDelete();
                             String message = getItem(position).getMessage();
@@ -897,6 +1004,7 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                                         Map<String,Object> map = new HashMap<>();
                                         map.put("reaction",pos);
+
 
                                         Query query = sRef.orderByChild("delete").equalTo(deletem);
                                         query.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -1188,62 +1296,62 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                                 String ruid = getItem(position).getUid();
 
-                                holder.seentv.setOnClickListener(new View.OnClickListener() {
-                                    @Override
-                                    public  void onClick(View view) {
-
-                                        final  String delete = String.valueOf(System.currentTimeMillis());
-
-                                        modal.setMessage(message);
-                                        modal.setSearch(message.toLowerCase());
-                                        modal.setRuid(ruid);
-                                        modal.setSuid(suid);
-                                        modal.setTime(savetime);
-                                        modal.setType("img");
-                                        modal.setUrl(picurl);
-
-                                        String key = sRef.push().getKey();
-                                        modal.setDelete(key);
-
-                                        sRef.child(key).setValue(modal);
-
-                                        rmodal.setMessage(message);
-                                        rmodal.setSearch(message);
-                                        rmodal.setRuid(ruid);
-                                        rmodal.setSuid(suid);
-                                        rmodal.setType("img");
-                                        rmodal.setUrl(picurl);
-                                        rmodal.setTime(savetime);
-
-                                        String key2 = rRef.push().getKey();
-                                        rmodal.setDelete(key2);
-
-                                        rRef.child(key2).setValue(rmodal);
-
-                                        // chat list ref
-
-                                        listModel.setLastm(message);
-                                        listModel.setName(rname);
-                                        listModel.setUid(ruid);
-                                        listModel.setUrl(rurl);
-                                        listModel.setTime(savetime);
-
-                                        schatlist.child(ruid).setValue(listModel);
-
-                                        // adding data in receiver
-
-                                        rlistmodel.setLastm(message);
-                                        rlistmodel.setName(sname);
-                                        rlistmodel.setUid(suid);
-                                        rlistmodel.setUrl(surl);
-                                        rlistmodel.setTime(savetime);
-
-                                        rchatlist.child(suid).setValue(rlistmodel);
-
-                                        seenStatus.child(suid+ruid).child("counts").child(Decode.decode(message)).setValue("sent");
-
-                                    }
-                                });
+//                                holder.seentv.setOnClickListener(new View.OnClickListener() {
+//                                    @Override
+//                                    public  void onClick(View view) {
+//
+//                                        final  String delete = String.valueOf(System.currentTimeMillis());
+//
+//                                        modal.setMessage(message);
+//                                        modal.setSearch(message.toLowerCase());
+//                                        modal.setRuid(ruid);
+//                                        modal.setSuid(suid);
+//                                        modal.setTime(savetime);
+//                                        modal.setType("img");
+//                                        modal.setUrl(picurl);
+//
+//                                        String key = sRef.push().getKey();
+//                                        modal.setDelete(key);
+//
+//                                        sRef.child(key).setValue(modal);
+//
+//                                        rmodal.setMessage(message);
+//                                        rmodal.setSearch(message);
+//                                        rmodal.setRuid(ruid);
+//                                        rmodal.setSuid(suid);
+//                                        rmodal.setType("img");
+//                                        rmodal.setUrl(picurl);
+//                                        rmodal.setTime(savetime);
+//
+//                                        String key2 = rRef.push().getKey();
+//                                        rmodal.setDelete(key2);
+//
+//                                        rRef.child(key2).setValue(rmodal);
+//
+//                                        // chat list ref
+//
+//                                        listModel.setLastm(message);
+//                                        listModel.setName(rname);
+//                                        listModel.setUid(ruid);
+//                                        listModel.setUrl(rurl);
+//                                        listModel.setTime(savetime);
+//
+//                                        schatlist.child(ruid).setValue(listModel);
+//
+//                                        // adding data in receiver
+//
+//                                        rlistmodel.setLastm(message);
+//                                        rlistmodel.setName(sname);
+//                                        rlistmodel.setUid(suid);
+//                                        rlistmodel.setUrl(surl);
+//                                        rlistmodel.setTime(savetime);
+//
+//                                        rchatlist.child(suid).setValue(rlistmodel);
+//
+//                                        seenStatus.child(suid+ruid).child("counts").child(Decode.decode(message)).setValue("sent");
+//
+//                                    }
+//                                });
                             }
                             @NonNull
                             @Override
@@ -1420,49 +1528,38 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
 
     }
+    private void updatemesssageseen(){
 
-    private void getdata() {
-        try {
-            lastseenref.addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
+        /// updating list item value
+        HashMap hashMap = new HashMap();
+        hashMap.put("read","yes");
+        hashMap.put("delivered","yes");
 
-                    if (snapshot.exists()){
-                        String userstatus = snapshot.child(ruid).getValue().toString();
-                        lasteentv.setText(userstatus);
-                    }else {
-                        lasteentv.setText("Long time ago");
-                    }
+
+        /// updating messages
+        Map<String,Object> map = new HashMap<>();
+        map.put("read","yes");
+        map.put("delivered","yes");
+
+        FirebaseDatabase.getInstance().getReference("Message").
+                child(suid).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+
+                if (snapshot.hasChild(ruid)){
+                    rchatlist.child(suid).updateChildren(hashMap);
+                }else {
+
                 }
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                }
-            });
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
 
-        }catch (Exception e){
-
-        }
-    }
-
-    private  void onlineuser(){
-
-        lastseenref.child(suid).setValue("online");
+            }
+        });
 
     }
 
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        lastseenref.child(suid).setValue("Last seen "+savetime);
-        typingstatus = "0";
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        lastseenref.child(suid).setValue("Last seen "+savetime);
-
-    }
     // bottomsheet for message option
     private void messageSheet(String delete, String message, String suid2) {
 
@@ -1587,74 +1684,71 @@ public class MessageAct extends AppCompatActivity implements PopupMenu.OnMenuIte
 
                                 String ruid = getItem(position).getUid();
 
-                                holder.seentv.setOnClickListener(new View.OnClickListener() {
-                                    @Override
-                                    public  void onClick(View view) {
-
-                                        sRef = database.getReference("Message").child(suid).child(ruid);
-                                        rRef = database.getReference("Message").child(ruid).child(suid);
-                                        rchatlist = database.getReference("chat list").child(ruid);
-                                        holder.seentv.setText("....");
-
-                                        //   String encodemessage = Encode.encode(message);
-
-                                        // set the code to the edit text
-
-                                        modal.setMessage(message);
-                                        modal.setSearch(message.toLowerCase());
-                                        modal.setRuid(ruid);
-                                        modal.setSuid(suid);
-                                        modal.setTime(savetime);
-                                        modal.setDelete(String.valueOf(System.currentTimeMillis()));
-
-                                        String key = sRef.push().getKey();
-
-                                        sRef.child(key).setValue(modal);
-                                        messageEt.setText("");
-
-                                        rmodal.setMessage(message);
-                                        rmodal.setSearch(message.toLowerCase());
-                                        rmodal.setRuid(ruid);
-                                        rmodal.setSuid(suid);
-                                        rmodal.setTime(savetime);
-                                        rmodal.setDelete(String.valueOf(System.currentTimeMillis()));
-
-                                        seenStatus.child(suid+ruid).child("counts").child(Decode.decode(message)).setValue("sent");
-
-                                        String key2 = rRef.push().getKey();
-
-                                        rRef.child(key2).setValue(rmodal);
-                                        messageEt.setText("");
-
-                                        // chat list ref
-
-                                        Handler handler = new Handler();
-                                        handler.postDelayed(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                listModel.setLastm(message);
-                                                listModel.setName(rname);
-                                                listModel.setUid(ruid);
-                                                listModel.setUrl(rurl);
-                                                listModel.setTime(savetime);
-
-                                                schatlist.child(ruid).setValue(listModel);
-
-                                                // adding data in receiver
-
-                                                rlistmodel.setLastm(message);
-                                                rlistmodel.setName(sname);
-                                                rlistmodel.setUid(suid);
-                                                rlistmodel.setUrl(surl);
-                                                rlistmodel.setTime(savetime);
-
-                                                rchatlist.child(suid).setValue(rlistmodel);
-                                                holder.seentv.setText("Sent");
-                                            }
-                                        },1000);
-
-                                    }
-                                });
+//                                holder.seentv.setOnClickListener(new View.OnClickListener() {
+//                                    @Override
+//                                    public  void onClick(View view) {
+//
+//                                        sRef = database.getReference("Message").child(suid).child(ruid);
+//                                        rRef = database.getReference("Message").child(ruid).child(suid);
+//                                        rchatlist = database.getReference("chat list").child(ruid);
+//                                        //   String encodemessage = Encode.encode(message);
+//
+//                                        // set the code to the edit text
+//
+//                                        modal.setMessage(message);
+//                                        modal.setSearch(message.toLowerCase());
+//                                        modal.setRuid(ruid);
+//                                        modal.setSuid(suid);
+//                                        modal.setTime(savetime);
+//                                        modal.setDelete(String.valueOf(System.currentTimeMillis()));
+//
+//                                        String key = sRef.push().getKey();
+//
+//                                        sRef.child(key).setValue(modal);
+//                                        messageEt.setText("");
+//
+//                                        rmodal.setMessage(message);
+//                                        rmodal.setSearch(message.toLowerCase());
+//                                        rmodal.setRuid(ruid);
+//                                        rmodal.setSuid(suid);
+//                                        rmodal.setTime(savetime);
+//                                        rmodal.setDelete(String.valueOf(System.currentTimeMillis()));
+//
+//                                        seenStatus.child(suid+ruid).child("counts").child(Decode.decode(message)).setValue("sent");
+//
+//                                        String key2 = rRef.push().getKey();
+//
+//                                        rRef.child(key2).setValue(rmodal);
+//                                        messageEt.setText("");
+//
+//                                        // chat list ref
+//
+//                                        Handler handler = new Handler();
+//                                        handler.postDelayed(new Runnable() {
+//                                            @Override
+//                                            public void run() {
+//                                                listModel.setLastm(message);
+//                                                listModel.setName(rname);
+//                                                listModel.setUid(ruid);
+//                                                listModel.setUrl(rurl);
+//                                                listModel.setTime(savetime);
+//
+//                                                schatlist.child(ruid).setValue(listModel);
+//
+//                                                // adding data in receiver
+//
+//                                                rlistmodel.setLastm(message);
+//                                                rlistmodel.setName(sname);
+//                                                rlistmodel.setUid(suid);
+//                                                rlistmodel.setUrl(surl);
+//                                                rlistmodel.setTime(savetime);
+//
+//                                                rchatlist.child(suid).setValue(rlistmodel);
+//                                            }
+//                                        },1000);
+//
+//                                    }
+//                                });
                             }
 
                             @NonNull

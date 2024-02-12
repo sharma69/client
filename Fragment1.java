@@ -43,6 +43,9 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.squareup.picasso.Picasso;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 public class Fragment1  extends Fragment {
@@ -50,7 +53,7 @@ public class Fragment1  extends Fragment {
     RecyclerView recyclerView;
     FirebaseDatabase database ;
     DatabaseReference chatlist,lastseenref;
-    String password,currentuid;
+    String password,currentuid,date;
     FirebaseFirestore db;
     DocumentReference documentReference;
     FirebaseAuth mAuth;
@@ -89,7 +92,8 @@ public class Fragment1  extends Fragment {
 
         statusRef = database.getReference("Status");
 
-        lastseenref.child(currentuid).setValue("online");
+        DateFormat df = new SimpleDateFormat("h:mm a");
+         date = df.format(Calendar.getInstance().getTime());
 
         checkAccount();
         deletestatus();
@@ -97,33 +101,6 @@ public class Fragment1  extends Fragment {
 
     private void deletestatus() {
 
-//        if (System.currentTimeMillis() >= delete) {
-//
-//            Query query = statusRef.orderByChild("delete").equalTo(delete);
-//            query.addListenerForSingleValueEvent(new ValueEventListener() {
-//                @Override
-//                public void onDataChange(@NonNull DataSnapshot snapshot) {
-//
-//                    for (DataSnapshot snapshot1 : snapshot.getChildren()) {
-//
-//                        snapshot1.getRef().removeValue().addOnSuccessListener(new OnSuccessListener<Void>() {
-//                            @Override
-//                            public void onSuccess(Void unused) {
-//
-//                            }
-//                        });
-//                    }
-//                }
-//
-//                @Override
-//                public void onCancelled(@NonNull DatabaseError error) {
-//
-//                }
-//            });
-//
-//
-//        } else {
-//        }
     }
     private void checkAccount() {
 
@@ -158,6 +135,13 @@ public class Fragment1  extends Fragment {
 
         checkAccount();
 
+        HashMap hashMap = new HashMap();
+        hashMap.put("online","yes");
+        hashMap.put("Chatting","no");
+        hashMap.put("Last seen",date);
+        lastseenref.child(currentuid).setValue(hashMap);
+
+
         FirebaseRecyclerOptions<ListModal> options =
                 new FirebaseRecyclerOptions.Builder<ListModal>()
                         .setQuery(chatlist,ListModal.class)
@@ -171,7 +155,7 @@ public class Fragment1  extends Fragment {
 
                         holder.setList(getActivity(),model.getTime(),model.getLastm(),
                                 model.getName()
-                                ,model.getUrl(),model.getUid());
+                                ,model.getUrl(),model.getUid(),model.getRead(),model.getDelivered());
 
                         String postkey = getRef(position).getKey();
                         String ruid = getItem(position).getUid();
@@ -185,6 +169,8 @@ public class Fragment1  extends Fragment {
                             public void onClick(View view) {
 
                                 checkLockstatus(ruid);
+                                holder.updatemessageseen(currentuid,ruid);
+
                             }
                         });
                         holder.lastmtv.setOnClickListener(new View.OnClickListener() {
@@ -192,6 +178,8 @@ public class Fragment1  extends Fragment {
                             public void onClick(View view) {
 
                                 checkLockstatus(ruid);
+                                holder.updatemessageseen(currentuid,ruid);
+
                             }
                         });
 
@@ -212,7 +200,6 @@ public class Fragment1  extends Fragment {
                                 showdp(urlofuser);
                             }
                         });
-
 
                     }
 
@@ -373,9 +360,4 @@ public class Fragment1  extends Fragment {
 
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        lastseenref.child(currentuid).setValue("offline");
-    }
 }
